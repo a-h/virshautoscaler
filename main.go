@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"log/slog"
 	"os"
 
@@ -9,8 +9,22 @@ import (
 	"github.com/a-h/virshautoscaler/sloghandler"
 )
 
+var flagVerbose = flag.Bool("v", false, "Set to true for verbose logs")
+
 func main() {
-	log := slog.New(sloghandler.NewHandler(os.Stdout, nil))
+	flag.Parse()
+
+	var addSource bool
+	level := slog.LevelInfo
+	if *flagVerbose {
+		addSource = true
+		level = slog.LevelDebug
+	}
+
+	log := slog.New(sloghandler.NewHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: addSource,
+		Level:     level,
+	}))
 
 	h, err := hypervisor.New()
 	if err != nil {
@@ -28,7 +42,6 @@ func main() {
 	}
 	for _, d := range domains {
 		domainNameToStatus[d.Name] = d.State
-		fmt.Printf("%s\t%s\t%v\n", d.Name, d.UUID, d.State)
 	}
 	log.Debug("Current VMs", slog.Any("domains", domains))
 
