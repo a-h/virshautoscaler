@@ -45,7 +45,7 @@ func main() {
 	}
 	log.Debug("Current VMs", slog.Any("domains", domains))
 
-	machines := []*hypervisor.Machine{
+	machines := []hypervisor.Machine{
 		hypervisor.NewMachine("runner-1", "/vm/runner-1.qcow2"),
 		hypervisor.NewMachine("runner-2", "/vm/runner-2.qcow2"),
 	}

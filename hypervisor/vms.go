@@ -97,8 +97,8 @@ type Machine struct {
 	Network          string
 }
 
-func NewMachine(name string, bootDiskFileName string) *Machine {
-	return &Machine{
+func NewMachine(name string, bootDiskFileName string) Machine {
+	return Machine{
 		Name:             name,
 		MemoryMB:         1024,
 		VCPU:             1,
@@ -110,28 +110,21 @@ func NewMachine(name string, bootDiskFileName string) *Machine {
 
 // Create a transient domain (one that can't be restarted, paused or stopped).
 // A transient domain is automatically undefined when it stops.
-func (h *Hypervisor) Create(args *Machine) (d Domain, err error) {
+func (h *Hypervisor) Create(m Machine) (d Domain, err error) {
 	var domainXML libvirtxml.Domain
-	domainXML.Name = args.Name
+	domainXML.Name = m.Name
 	domainXML.Type = "kvm"
 	domainXML.Memory = &libvirtxml.DomainMemory{
-		Value: uint(args.MemoryMB),
+		Value: uint(m.MemoryMB),
 		Unit:  "MiB",
 	}
-	//TODO: Consider.
-	//<cpu mode='host-passthrough' check='none' migratable='on'/>
-	//<clock offset='utc'>
-	//  <timer name='rtc' tickpolicy='catchup'/>
-	//  <timer name='pit' tickpolicy='delay'/>
-	//  <timer name='hpet' present='no'/>
-	//</clock>
 	domainXML.VCPU = &libvirtxml.DomainVCPU{
 		Placement: "static",
-		Value:     uint(args.VCPU),
+		Value:     uint(m.VCPU),
 	}
 	domainXML.OS = &libvirtxml.DomainOS{
 		Type: &libvirtxml.DomainOSType{
-			Arch: args.Architecture,
+			Arch: m.Architecture,
 			Type: "hvm",
 		},
 	}
@@ -154,7 +147,7 @@ func (h *Hypervisor) Create(args *Machine) (d Domain, err error) {
 		},
 		Source: &libvirtxml.DomainDiskSource{
 			File: &libvirtxml.DomainDiskSourceFile{
-				File: args.BootDiskFileName,
+				File: m.BootDiskFileName,
 			},
 		},
 		Target: &libvirtxml.DomainDiskTarget{
@@ -165,7 +158,7 @@ func (h *Hypervisor) Create(args *Machine) (d Domain, err error) {
 	domainXML.Devices.Interfaces = append(domainXML.Devices.Interfaces, libvirtxml.DomainInterface{
 		Source: &libvirtxml.DomainInterfaceSource{
 			Network: &libvirtxml.DomainInterfaceSourceNetwork{
-				Network: args.Network,
+				Network: m.Network,
 			},
 		},
 		Model: &libvirtxml.DomainInterfaceModel{
