@@ -15,6 +15,27 @@
         "type": "github"
       }
     },
+    "gitignore": {
+      "inputs": {
+        "nixpkgs": [
+          "virsh-json",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1703887061,
+        "narHash": "sha256-gGPa9qWNc6eCXT/+Z5/zMkyYOuRZqeFZBDbopNZQkuY=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "43e1aa1308018f37118e34d3a9cb4f5e75dc11d5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1706373441,
@@ -34,7 +55,29 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
+        "virsh-json": "virsh-json",
         "xc": "xc"
+      }
+    },
+    "virsh-json": {
+      "inputs": {
+        "gitignore": "gitignore",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1704708535,
+        "narHash": "sha256-96mWyPVQgD2abDWEHd57DxSCm3PcgZpqEdTpdtW4MZ8=",
+        "owner": "a-h",
+        "repo": "virshjson",
+        "rev": "65f3863cfbbdefefeb0e6bb991f06fcd9e28d6c6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "a-h",
+        "repo": "virshjson",
+        "type": "github"
       }
     },
     "xc": {

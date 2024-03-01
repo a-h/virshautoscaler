@@ -5,6 +5,10 @@
       url = "github:joerdav/xc";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    virsh-json = {
+      url = "github:a-h/virshjson";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { nixpkgs, xc, ... }:
@@ -27,6 +31,10 @@
       # `nix develop` provides a shell containing development tools.
       devShell = forAllSystems ({ system, pkgs }:
         pkgs.mkShell {
+          nativeBuildInputs = [
+            pkgs.pkg-config # Required to set PKG_CONFIG_PATH to find C libs.
+            pkgs.curl
+          ];
           buildInputs = [
             pkgs.libvirt
             pkgs.virt-manager

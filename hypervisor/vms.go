@@ -3,17 +3,24 @@ package hypervisor
 import (
 	"encoding/xml"
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"strings"
 
 	"libvirt.org/go/libvirt"
 	"libvirt.org/go/libvirtxml"
 )
 
 type Hypervisor struct {
+	Log    *slog.Logger
 	Client *libvirt.Connect
 }
 
-func New() (h *Hypervisor, err error) {
-	h = &Hypervisor{}
+func New(log *slog.Logger) (h *Hypervisor, err error) {
+	h = &Hypervisor{
+		Log: log,
+	}
 	h.Client, err = libvirt.NewConnect("qemu:///system")
 	return h, err
 }
@@ -44,6 +51,7 @@ type Domain struct {
 	Name  string
 	UUID  string
 	State State
+	Addrs []string
 }
 
 func newDomain(vd libvirt.Domain) (d Domain, err error) {
@@ -57,6 +65,16 @@ func newDomain(vd libvirt.Domain) (d Domain, err error) {
 	}
 	s, _, _ := vd.GetState()
 	d.State = virStateToName[s]
+
+	ifs, err := vd.ListAllInterfaceAddresses(libvirt.DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE)
+	if err != nil {
+		return d, fmt.Errorf("failed to lookup interface addresses: %w", err)
+	}
+	for _, in := range ifs {
+		for _, addr := range in.Addrs {
+			d.Addrs = append(d.Addrs, addr.Addr)
+		}
+	}
 	return d, nil
 }
 
@@ -97,6 +115,10 @@ type Machine struct {
 	Network          string
 }
 
+func (m Machine) RuntimeBootDiskFileName() string {
+	return strings.TrimSuffix(m.BootDiskFileName, ".img") + "_run.img"
+}
+
 func NewMachine(name string, bootDiskFileName string) Machine {
 	return Machine{
 		Name:             name,
@@ -108,9 +130,33 @@ func NewMachine(name string, bootDiskFileName string) Machine {
 	}
 }
 
+func copyFile(src, dst string) (int64, error) {
+	source, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+
+	// Use a larger buffer.
+	buf := make([]byte, 1024*1024*5) // 5MB buffer.
+	nBytes, err := io.CopyBuffer(destination, source, buf)
+	return nBytes, err
+}
+
 // Create a transient domain (one that can't be restarted, paused or stopped).
 // A transient domain is automatically undefined when it stops.
 func (h *Hypervisor) Create(m Machine) (d Domain, err error) {
+	h.Log.Debug("Copying boot disk", slog.String("src", m.BootDiskFileName), slog.String("tgt", m.RuntimeBootDiskFileName()))
+	_, err = copyFile(m.BootDiskFileName, m.RuntimeBootDiskFileName())
+	if err != nil {
+		return d, fmt.Errorf("failed to copy file: %v", err)
+	}
 	var domainXML libvirtxml.Domain
 	domainXML.Name = m.Name
 	domainXML.Type = "kvm"
@@ -143,11 +189,11 @@ func (h *Hypervisor) Create(m Machine) (d Domain, err error) {
 		Device: "disk",
 		Driver: &libvirtxml.DomainDiskDriver{
 			Name: "qemu",
-			Type: "qcow2",
+			Type: "raw",
 		},
 		Source: &libvirtxml.DomainDiskSource{
 			File: &libvirtxml.DomainDiskSourceFile{
-				File: m.BootDiskFileName,
+				File: m.RuntimeBootDiskFileName(),
 			},
 		},
 		Target: &libvirtxml.DomainDiskTarget{
@@ -170,11 +216,13 @@ func (h *Hypervisor) Create(m Machine) (d Domain, err error) {
 	if err != nil {
 		return d, fmt.Errorf("failed to create XML: %w", err)
 	}
+	h.Log.Info("Starting machine", slog.String("name", m.Name))
 	vd, err := h.Client.DomainCreateXML(string(dxml), libvirt.DOMAIN_NONE)
 	if err != nil {
 		return d, fmt.Errorf("failed to create domain: %v", err)
 	}
 	defer vd.Free()
+	h.Log.Info("Started machine", slog.String("name", m.Name))
 	return newDomain(*vd)
 }
 
